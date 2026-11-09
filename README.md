@@ -28,9 +28,17 @@ Spezifikationsphase. Code gibt es noch nicht.
 6. Benutzerportal: Self-Service für Systembenutzer
 7. Sicherheit: Firewall, Fail2Ban, WAF, Malware-Scanner, Sicherheitsberater
 8. Backup und Monitoring
+9. Anwendungsverwaltung: OpenSlides, Vaultwarden, Keycloak, Nextcloud, Outline und weitere Container-Anwendungen
 
 ## Geplanter Stack (Kurzfassung)
 
 Go (Panel-Server, Host-Agent, CLI) · PostgreSQL · VictoriaMetrics ·
 React + TypeScript · nginx/Apache · PHP-FPM · MariaDB/PostgreSQL · PowerDNS ·
 Postfix/Dovecot/Rspamd · nftables · restic
+
+## Verwaltete Container-Anwendungen
+
+OpenSlides, Vaultwarden, Keycloak, Nextcloud und Outline über deklarative
+Anwendungsprofile: Formular- und Dateiansicht der Konfiguration, Versionshistorie
+mit Rollback, SSO-Verknüpfung mit Keycloak, Updates mit Sicherung und Rücknahme
+([Kapitel 10](docs/anforderungen/10-anwendungen.md)).

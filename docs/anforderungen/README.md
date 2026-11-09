@@ -14,6 +14,7 @@ verwaltet werden. Der Funktionsumfang vereint vier etablierte Produktklassen:
 | Plesk Obsidian | Webhosting-Panel mit Kunden- und Reseller-Verwaltung | [03-webhosting.md](03-webhosting.md), [04-mail.md](04-mail.md) |
 | Webmin | Systemadministration (Linux/Unix) | [05-systemverwaltung.md](05-systemverwaltung.md) |
 | Usermin | Self-Service-Portal für Systembenutzer | [06-benutzerportal.md](06-benutzerportal.md) |
+| – (eigene Anforderung) | Verwaltung von Container-Anwendungen wie OpenSlides, Vaultwarden, Keycloak, Nextcloud, Outline | [10-anwendungen.md](10-anwendungen.md) |
 
 Übergreifende Funktionen (Anmeldung, Rechte, Dashboard, API, Sicherheit,
 Backup, Monitoring) sind nur einmal beschrieben, auch wenn mehrere
@@ -23,6 +24,7 @@ Referenzprodukte sie anbieten:
 - [07-sicherheit.md](07-sicherheit.md): Firewall, Intrusion Prevention, WAF, Malware-Schutz
 - [08-backup-monitoring.md](08-backup-monitoring.md): Datensicherung, Überwachung, Protokolle
 - [09-nichtfunktional.md](09-nichtfunktional.md): Qualität, Performance, Betrieb, Kompatibilität
+- [10-anwendungen.md](10-anwendungen.md): Anwendungsprofile, Konfiguration und Betrieb von Container-Anwendungen
 
 Die technische Umsetzung beschreibt
 [../TECHNISCHE-SPEZIFIKATION.md](../TECHNISCHE-SPEZIFIKATION.md).
@@ -46,6 +48,7 @@ Entfallene Anforderungen bleiben mit dem Vermerk „entfallen“ stehen.
 | BAK | Backup |
 | MON | Monitoring und Protokolle |
 | NFA | Nichtfunktionale Anforderungen |
+| APP | Anwendungsverwaltung (Container-Anwendungen) |
 
 ### 2.2 Priorität (nach MoSCoW)
 
@@ -114,5 +117,7 @@ Die Spalte „Ref.“ nennt das Referenzprodukt, in dem die Funktion vorkommt:
 | Firewall, Fail2Ban, WAF, Malware-Schutz | | ● | ● | | 07 |
 | Backup und Wiederherstellung | ○ | ● | ● | | 08 |
 | Monitoring, Alarme, Logs | ○ | ● | ● | | 08 |
+| Anwendungsprofile, Konfiguration von Container-Anwendungen | ○ | | | | 10 |
+| SSO-Verknüpfung, zentrale SMTP-Profile, App-Updates mit Rollback | | | | | 10 |
 
 ● = Kernfunktion im Referenzprodukt, ○ = teilweise vorhanden oder über eine Erweiterung

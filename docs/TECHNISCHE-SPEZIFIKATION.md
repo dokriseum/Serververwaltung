@@ -339,6 +339,7 @@ POST   /api/v1/backups/policies/5:run              Sicherung sofort ausführen
 | **M0 Fundament** | Monorepo, CI, Paketierung, Panel-Grundgerüst, Agent mit Treibern pkg/systemd, Auth (PLT-AUTH), RBAC-Kern, Audit, Jobs, UI-Shell | 6 Wochen |
 | **M1 System** | PLT-DSH, PLT-FIL (Dateimanager, Terminal), SYS-PKG, SYS-SVC, SYS-PRC, SYS-CRN, SYS-USR, SYS-LOG, SYS-NET (Kern), SEC-FW, SEC-IPS, MON (Basis) | 8 Wochen |
 | **M2 Container** | CON-ENV (lokal, Agent), CON-CTR, CON-IMG, CON-RES, CON-STK, CON-TPL, CON-REG | 8 Wochen |
+| **M2a Anwendungen** | APP-PRO, APP-DSC (Übernahme der bestehenden Installationen), APP-CFG, APP-SEC, APP-INT, APP-UPD, APP-OPS, APP-ACT; Profile OpenSlides, Vaultwarden, Keycloak, Nextcloud, Outline | 8 Wochen |
 | **M3 Webhosting** | WEB-CUS, WEB-DOM, WEB-WSV, WEB-RUN (PHP, Node), WEB-SSL, WEB-DNS, WEB-DB, WEB-FTP, WEB-SUB | 12 Wochen |
 | **M4 Mail** | MAIL-SRV, MAIL-BOX, MAIL-AUT, MAIL-SPM, MAIL-WML | 8 Wochen |
 | **M5 Betrieb** | BAK, MON vollständig, SEC-WAF, SEC-MAL, SEC-ADV, PLT-NOT vollständig | 8 Wochen |
@@ -351,9 +352,142 @@ POST   /api/v1/backups/policies/5:run              Sicherung sofort ausführen
 
 | Risiko | Auswirkung | Gegenmaßnahme |
 |--------|------------|---------------|
+| Anwendungsprofile veralten bei neuen Versionen der Anwendungen | Fehlerhafte Formulare, gescheiterte Updates | Versionsbereiche je Einstellung, automatisierte Profil-Tests gegen neue Image-Versionen in der CI, generischer Editor als Rückfallebene |
 | Sehr großer Funktionsumfang (drei Produkte in einem) | Verzögerung | Strikte Priorisierung nach MoSCoW, modularer Aufbau, Version 1.0 nur mit M-Anforderungen |
 | Unterschiede zwischen Distributionen | Fehler auf einzelnen Systemen | Treiberabstraktion, Integrationsmatrix in der CI, begrenzte Liste unterstützter Systeme |
 | Root-Agent als Angriffsziel | Vollständige Kompromittierung | Typisierte Schnittstelle, Validierung im Agenten, mTLS, Fuzzing der gRPC-Schnittstelle, externer Penetrationstest |
 | Docker umgeht Firewall-Regeln | Unbeabsichtigt offene Ports | Eigene nftables-Tabelle mit `DOCKER-USER`-Integration, Warnung im Sicherheitsberater |
 | Manuelle Änderungen an Konfigurationsdateien | Überschriebene Anpassungen | Drift-Erkennung, Override-Verzeichnisse, Hinweis in der Oberfläche |
 | Lizenzkonflikte bei eingebundenen Komponenten | Rechtliches Risiko | Lizenzprüfung in der CI (NFA-LIZ-001) |
+
+---
+
+## 12. Anwendungsverwaltung (Anforderungen: Kapitel 10)
+
+### 12.1 Bausteine
+
+```
+Panel-Server
+ ├─ Modul „apps“
+ │   ├─ Profil-Registry      (mitgelieferte + eigene Profile, Schema-Prüfung, Signaturen)
+ │   ├─ Instanz-Verwaltung   (Sollzustand je Instanz: Profil, Version, Werte, Geheimnis-Referenzen)
+ │   ├─ Konfig-Engine        (Werte ↔ Konfigurationsquellen, Diff, Rangfolge, Drift)
+ │   ├─ Integrationen        (Reverse-Proxy, SMTP-Profile, Keycloak-Admin-API, DB-Provisionierung)
+ │   └─ Lebenszyklus-Jobs    (Installieren, Übernehmen, Ändern, Update, Sicherung, Rollback)
+ │
+Agent (Treiber „apps“)
+ ├─ Compose-Steuerung        (Docker Compose v2 über die Docker-API bzw. compose-go)
+ ├─ Datei-Adapter            (Lesen/Schreiben in Volumes und Bind-Mounts, atomar)
+ ├─ Exec-Adapter             (Anwendungs-CLI im Container: occ, kc.sh/kcadm.sh, openslides)
+ └─ Versions-Repository      (Git-Repository je Instanz unter /var/lib/svagentd/apps/<instanz>/)
+```
+
+### 12.2 Konfigurationsadapter
+
+Jede Konfigurationsquelle eines Profils hat einen Adapter. Die Adapter sind
+**strukturerhaltend**: Unbekannte Schlüssel, Kommentare und Reihenfolge bleiben
+erhalten (APP-CFG-003).
+
+| Adapter | Verwendung | Umsetzung |
+|---------|------------|-----------|
+| `env-file` | `.env`, Env-Dateien von Diensten | Zeilenbasierter Parser mit Kommentar-Erhalt |
+| `compose-env` | `environment:` in Compose-Dateien | YAML-AST (`yaml.v3`-Knoten), nur gezielte Knoten ändern |
+| `yaml`, `json`, `toml`, `ini` | Konfigurationsdateien | AST-basierte Bearbeitung |
+| `docker-secret` | Geheimnisse | Datei in `secrets/` mit 0400, Referenz in Compose |
+| `cli` | Einstellungen, die nur per CLI sicher änderbar sind | Befehlsvorlagen im Profil, z. B. `occ config:system:set {key} --value={value} --type={type}` |
+| `http-api` | Einstellungen in der Anwendungsdatenbank | REST-Aufrufe mit Token aus der Geheimnis-Ablage, z. B. Keycloak-Admin-API, Vaultwarden-Admin-API |
+| `generator` | Dateien, die ein Herstellerwerkzeug erzeugt | Quelle bearbeiten, dann Generator ausführen (OpenSlides: `config.yml` → `openslides config`) |
+
+### 12.3 Ablauf einer Konfigurationsänderung
+
+```
+Formular/Datei-Editor ─▶ Werte validieren (Profil-Schema) ─▶ Konfig-Engine rendert Ziel-Dateien
+   ─▶ Diff + Aktionsplan (Reload/Restart/Recreate je Dienst) anzeigen ─▶ Freigabe
+   ─▶ Agent: Commit im Versions-Repository (Stand „vorher“)
+           → Dateien atomar schreiben / CLI- und API-Aufrufe ausführen
+           → Prüfbefehl laut Profil (z. B. `docker compose config`, `nginx -t`)
+           → Aktion ausführen (z. B. `docker compose up -d <dienst>`)
+           → Healthcheck laut Profil (Timeout, Wiederholungen)
+           → OK: Commit „nachher“ · Fehler: Checkout „vorher“ + Aktion erneut + Meldung
+   ─▶ Audit-Eintrag mit maskiertem Diff, WebSocket-Push
+```
+
+Drift-Erkennung: Der Agent vergleicht periodisch und per `inotify` die
+verwalteten Dateien mit dem letzten Commit. Abweichungen werden als
+„externe Änderung“ gemeldet (APP-CFG-009).
+
+### 12.4 Profilformat (Auszug)
+
+```yaml
+apiVersion: svpanel.apps/v1
+kind: AppProfile
+metadata:
+  id: vaultwarden
+  name: Vaultwarden
+  versions: ">=1.30 <2.0"
+  docs: https://github.com/dani-garcia/vaultwarden/wiki
+detect:
+  images: ["vaultwarden/server", "ghcr.io/dani-garcia/vaultwarden"]
+services:
+  app:
+    image: vaultwarden/server
+    volumes: { data: /data }
+    ports: { http: 80 }
+sources:
+  env:      { adapter: compose-env, service: app, priority: 10 }
+  admincfg: { adapter: json, path: "volume:data/config.json", priority: 20 }  # überschreibt env
+settings:
+  - key: domain
+    label: { de: "Öffentliche URL", en: "Public URL" }
+    type: url
+    target: { source: env, name: DOMAIN, alt: { source: admincfg, name: domain } }
+    effect: recreate
+    managedBy: integration.reverseProxy          # wird bei Domain-Zuweisung gesetzt
+  - key: signups_allowed
+    label: { de: "Selbstregistrierung erlauben", en: "Allow sign-ups" }
+    type: boolean
+    default: false
+    group: security
+    target: { source: env, name: SIGNUPS_ALLOWED }
+    effect: restart
+    recommend: { value: false, severity: warning }
+  - key: admin_token
+    type: secret
+    generate: argon2-phc
+    target: { source: env, name: ADMIN_TOKEN }
+    effect: restart
+integrations:
+  smtp:  { map: { host: SMTP_HOST, port: SMTP_PORT, security: SMTP_SECURITY,
+                  from: SMTP_FROM, user: SMTP_USERNAME, password: SMTP_PASSWORD } }
+  reverseProxy: { service: app, port: http, websocket: true }
+health:
+  http: { service: app, path: /alive, expect: 200 }
+backup:
+  pre:
+    - exec: { service: app, cmd: ["sqlite3", "/data/db.sqlite3", ".backup '/data/db-backup.sqlite3'"] }
+      when: "settings.database_url startsWith 'sqlite' or settings.database_url == ''"
+  paths: ["volume:data"]
+  exclude: ["volume:data/db.sqlite3*", "volume:data/icon_cache"]
+update:
+  strategy: pull-recreate
+  versionScheme: semver
+actions:
+  - id: rotate-admin-token
+    label: { de: "Admin-Token erneuern" }
+    steps: [ { setSecret: admin_token, generate: argon2-phc }, { apply: true } ]
+```
+
+Profile für Nextcloud (Adapter `cli` mit `occ`), Keycloak (`http-api`,
+Build-Optionen mit `effect: rebuild`) und OpenSlides (`generator`) nutzen
+dieselbe Struktur. Für jedes mitgelieferte Profil gibt es in der CI einen
+Integrationstest: Installation, Übernahme einer Beispielinstallation,
+Änderung jeder Einstellung, Update von der vorherigen auf die aktuelle Version,
+Sicherung und Wiederherstellung.
+
+### 12.5 Keycloak-Verknüpfung (APP-INT-003)
+
+1. Der Benutzer wählt eine Keycloak-Instanz und einen Realm, dazu die Zielinstanz (z. B. Outline).
+2. Das Panel legt über die Admin-API einen vertraulichen OIDC-Client an. Redirect-URIs, Post-Logout-URI und Web-Origins werden aus der Domain der Zielinstanz berechnet. Hinzu kommen die nötigen Mapper (E-Mail, Name, Gruppen).
+3. Das Client-Secret wird in der Geheimnis-Ablage gespeichert. Das Panel trägt Issuer- bzw. Endpunkt-URLs, Client-ID und Secret über das Profil der Zielinstanz ein und übernimmt sie (Abschnitt 12.3).
+4. Test: Discovery-Dokument abrufen, Token-Endpunkt mit Client-Credentials prüfen, Anmeldeseite der Zielinstanz auf Weiterleitung prüfen.
+5. Die Verknüpfung wird als Abhängigkeit gespeichert (APP-INT-008). Beim Löschen der Zielinstanz bietet das Panel an, den Client zu entfernen.
