@@ -1,6 +1,6 @@
 # ADR 0001: Modularer Monolith als Steuerungsebene mit Standard-Engines
 
-- **Status:** Vorgeschlagen
+- **Status:** Teilweise abgelöst durch [ADR 0002](0002-host-agent-und-go.md)
 - **Datum:** 2026-11-09
 
 ## Kontext

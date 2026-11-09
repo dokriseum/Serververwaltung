@@ -1,19 +1,36 @@
 # Serververwaltung
 
-Zentrale Plattform zum Inventarisieren, Überwachen, Konfigurieren und Warten
-einer heterogenen Serverlandschaft.
+Software zur vollständig grafischen Verwaltung von Linux-Servern über den
+Browser. Sie vereint Container-Verwaltung, Webhosting mit Kunden- und
+Reseller-Verwaltung, Systemadministration und ein Self-Service-Portal für
+Systembenutzer.
 
 ## Status
 
-Konzeptphase. Code gibt es noch nicht.
+Spezifikationsphase. Code gibt es noch nicht.
 
 ## Dokumentation
 
-- [Architekturvorschlag](docs/ARCHITEKTUR.md): Zielbild, Komponenten,
-  Technologie-Stack, Sicherheitskonzept, Umsetzungsplan, offene Fragen
-- [Architekturentscheidungen (ADR)](docs/adr/)
+| Dokument | Inhalt |
+|----------|--------|
+| [Anforderungskatalog](docs/anforderungen/README.md) | Alle funktionalen und nichtfunktionalen Anforderungen mit IDs und Prioritäten |
+| [Technische Spezifikation](docs/TECHNISCHE-SPEZIFIKATION.md) | Architektur, Komponenten, verwaltete Dienste, Sicherheit, Datenmodell, API, Umsetzungsplan |
+| [Architekturentscheidungen (ADR)](docs/adr/) | Begründete Grundsatzentscheidungen |
+| [Architekturentwurf v0.1](docs/ARCHITEKTUR.md) | Erster Entwurf (abgelöst) |
+
+## Funktionsbereiche
+
+1. Plattform: Anmeldung (2FA, LDAP, OIDC), Rollen und Rechte, Dashboard, Dateimanager, Terminal, API, CLI
+2. Container: Docker, Podman, Swarm, Kubernetes, Stacks, GitOps, Edge
+3. Webhosting: Kunden, Reseller, Service-Pakete, Domains, PHP/Node.js, SSL, DNS, Datenbanken, FTP
+4. E-Mail: Postfächer, Spam- und Virenschutz, DKIM/SPF/DMARC, Webmail
+5. Systemverwaltung: Pakete, Dienste, Prozesse, Benutzer, Datenträger, Netzwerk, Serverdienste, Cluster
+6. Benutzerportal: Self-Service für Systembenutzer
+7. Sicherheit: Firewall, Fail2Ban, WAF, Malware-Scanner, Sicherheitsberater
+8. Backup und Monitoring
 
 ## Geplanter Stack (Kurzfassung)
 
-FastAPI · PostgreSQL · Redis · Ansible-Runner · Prometheus · Keycloak ·
-OpenBao/Vault · React + TypeScript · Docker Compose
+Go (Panel-Server, Host-Agent, CLI) · PostgreSQL · VictoriaMetrics ·
+React + TypeScript · nginx/Apache · PHP-FPM · MariaDB/PostgreSQL · PowerDNS ·
+Postfix/Dovecot/Rspamd · nftables · restic

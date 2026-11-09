@@ -1,8 +1,10 @@
 # Architekturvorschlag: Serververwaltung
 
-> Status: **Entwurf v0.1**. Grundlage sind nur der Projektname und die unten
-> genannten Annahmen. Verbindlich wird der Vorschlag erst, wenn die
-> [offenen Fragen](#10-offene-fragen) beantwortet sind.
+> **Status: abgelöst.** Dieser erste Entwurf (v0.1) entstand ohne konkrete
+> Anforderungen. Maßgeblich sind jetzt der
+> [Anforderungskatalog](anforderungen/README.md) und die
+> [Technische Spezifikation](TECHNISCHE-SPEZIFIKATION.md). Das Dokument bleibt
+> zur Nachvollziehbarkeit erhalten.
 
 ---
 
